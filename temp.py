@@ -1,3 +1,3 @@
 import datetime
 
-print(type(datetime.datetime.now()))
+test_str = ['Иванов Иван Иванович', 'Сидоров Сидор','Наранцэцэг','']

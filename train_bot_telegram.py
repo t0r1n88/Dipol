@@ -5,6 +5,28 @@ from telebot import types  # кнопки
 # sql
 import mysql.connector
 
+
+def preparation_fio(msg: str):
+    """
+    Функция для обработки сообщения с фио
+    :param msg: Строка с фио
+    :return: 3 объекта строки. Вместо недостающих элементов вставляются пустые строки
+    В случае если получается больше 3 элементов, то пользователя будут просить изменить написание. Также есть проверка на цифры
+    """
+    fio_lst = msg.split()
+    length_fio_lst = len(fio_lst)
+    if length_fio_lst == 3:
+        return fio_lst
+    elif length_fio_lst == 2:
+        fio_lst.append('')
+        return fio_lst
+    elif length_fio_lst == 1:
+        fio_lst.extend(['', ''])
+        return fio_lst
+    else:
+        return None
+
+
 mydb = mysql.connector.connect(
     host='localhost',
     user='root',
@@ -15,7 +37,7 @@ mydb = mysql.connector.connect(
 # Создаем базу данных
 mycursor = mydb.cursor()
 # Создаем базу данных
-#mycursor.execute('CREATE DATABASE telegramdatabase')
+# mycursor.execute('CREATE DATABASE telegramdatabase')
 
 # Создаем поля в таблице
 
@@ -23,10 +45,9 @@ mycursor = mydb.cursor()
 
 # Добавляем айди таблицы и айди телеграмм юзера
 # к слову айди телеграм юзера не стоит делать уникальным, поскольку человек может записываться на несколько курсов
-#mycursor.execute('ALTER TABLE users ADD COLUMN (id INT AUTO_INCREMENT PRIMARY KEY, telegram_id INT )')
+# mycursor.execute('ALTER TABLE users ADD COLUMN (id INT AUTO_INCREMENT PRIMARY KEY, telegram_id INT )')
 # Вставляем колонку для даты
-mycursor.execute('ALTER TABLE users ADD COLUMN (request_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
-
+# mycursor.execute('ALTER TABLE users ADD COLUMN (request_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
 
 
 bot = telebot.TeleBot('1706799536:AAGsQL4vxc3hum-mqi37mgXn9iHxBoGCYBw')
@@ -37,8 +58,8 @@ user_data = {}
 
 # Класс пользователя
 class User:
-    def __init__(self, first_name):
-        self.first_name = first_name
+    def __init__(self):
+        self.first_name = ''
         self.last_name = ''
         self.patronymic = ''
         self.request_time = None
@@ -47,17 +68,30 @@ class User:
 
 
 # Приветствие
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['start'], content_types=['text'])
 def send_welcome(message):
+
+    # Создаем клавиатуру Reply
+    markup_start = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    item_about = types.KeyboardButton('О ЦОПП')
+    item_reg =types.KeyboardButton('Записаться на курс')
+    item_active_courses = types.KeyboardButton('Актуальные курсы')
+    item_all_courses = types.KeyboardButton('Все курсы')
+    markup_start.add(item_active_courses,item_all_courses,item_reg,item_about)
+    # Оптравляем сообщение
     bot.send_message(message.chat.id,
-                     'Вас приветствует Центр опережающей профессиональной подготовки Республики Бурятия')
-    # Получаем имя пользователя
-
-    msg = bot.send_message(message.chat.id, 'Введите свое имя')
-    bot.register_next_step_handler(msg, process_firstname_step)
+                     'Вас приветствует Центр опережающей профессиональной подготовки Республики Бурятия',reply_markup=markup_start)
 
 
-def process_firstname_step(message):
+    # Получаем ФИО пользователя
+
+    # msg = bot.send_message(message.chat.id, 'Введите свое ФИО по образцу \n Иванов Иван Иванович\n '
+    #                                         'В случае если ваше ФИО состоит из 1 или 2 слов. Введите его  как есть ')
+
+    # bot.register_next_step_handler(msg, process_fio_step)
+
+
+def process_fio_step(message):
     """
     Функция для обработки имени пользователя
     """
@@ -65,7 +99,15 @@ def process_firstname_step(message):
     try:
         user_id = message.from_user.id
         # Добавляем данные в словарь. Создаем объект пользователя
-        user_data[user_id] = User(message.text)
+        fio = preparation_fio(message.text)
+        # Проверяем правильность.так как если элементов получилось 4 и более то возвращается None
+        if fio:
+            # Создаем ключе в словаре в качестве ключа выступает юзер айди
+            user_data[user_id] =[]
+            user_data[user_id].append(User())
+
+
+        # user_data[user_id] = User(message.text)
         msg = bot.send_message(message.chat.id, 'Введите свою фамилию')
         bot.register_next_step_handler(msg, process_lasttname_step)
     except Exception as e:
@@ -99,9 +141,9 @@ def process_patronymic_step(message):
         # Создаем sql запрос
         sql = 'INSERT INTO users (first_name, last_name, patronymic,telegram_id) VALUES (%s,%s,%s,%s)'
         # Указываем какие данные использовать
-        val = (user.first_name, user.last_name, user.patronymic ,user_id)
+        val = (user.first_name, user.last_name, user.patronymic, user_id)
         # Осуществляем запрос
-        mycursor.execute(sql,val)
+        mycursor.execute(sql, val)
         # Вносим изменения в базу данных
         mydb.commit()
         bot.send_message(message.chat.id,
