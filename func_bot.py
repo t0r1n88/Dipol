@@ -17,3 +17,10 @@ def preparation_fio(msg: str):
         return fio_lst
     else:
         return None
+
+def preparation_phone(msg:str):
+    """
+    Функция для обработки телефонных номеров
+    :param msg: строка с номером телефона
+    :return: Возвращает номер телефона в формате числа
+    """

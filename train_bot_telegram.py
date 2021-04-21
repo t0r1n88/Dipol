@@ -70,27 +70,54 @@ class User:
 # Приветствие
 @bot.message_handler(commands=['start'], content_types=['text'])
 def send_welcome(message):
-
     # Создаем клавиатуру Reply
     markup_start = types.ReplyKeyboardMarkup(resize_keyboard=True)
     item_about = types.KeyboardButton('О ЦОПП')
-    item_reg =types.KeyboardButton('Записаться на курс')
+    item_reg = types.KeyboardButton('Записаться на курс')
     item_active_courses = types.KeyboardButton('Актуальные курсы')
     item_all_courses = types.KeyboardButton('Все курсы')
-    markup_start.add(item_active_courses,item_all_courses,item_reg,item_about)
+    markup_start.add(item_active_courses, item_all_courses, item_reg, item_about)
     # Оптравляем сообщение
-    bot.send_message(message.chat.id,
-                     'Вас приветствует Центр опережающей профессиональной подготовки Республики Бурятия',reply_markup=markup_start)
-
-
+    msg = bot.send_message(message.chat.id,
+                     'Вас приветствует Центр опережающей профессиональной подготовки Республики Бурятия',
+                     reply_markup=markup_start)
+    bot.register_next_step_handler(msg, selector_func)
     # Получаем ФИО пользователя
 
     # msg = bot.send_message(message.chat.id, 'Введите свое ФИО по образцу \n Иванов Иван Иванович\n '
     #                                         'В случае если ваше ФИО состоит из 1 или 2 слов. Введите его  как есть ')
 
-    # bot.register_next_step_handler(msg, process_fio_step)
 
 
+@bot.message_handler(content_types=['text'])
+def selector_func(message):
+    """
+    Обрабатывает действия пользователя с клавиатурой
+    :param message:
+    :return:
+    """
+
+    try:
+        if message.text == 'О ЦОПП':
+            bot.send_message(message.chat.id, """
+            ЦОПП - это оператор интеллектуальных и материальных ресурсов Республики Бурятия для профессиональной ориентации, ускоренного профессионального обучения, подготовки, переподготовки, повышения квалификации всех категорий граждан по востребованным, новым и перспективным профессиям на уровне, соответствующем стандартам Worldskills, площадка для создания экспертных сообществ, введения новых компетенций.
+    Основные направления деятельности ЦОПП:
+    
+    Развитие приоритетных для Республики Бурятия групп компетенций или отдельных компетенций, формирование новых компетенций, соответствующих приоритетам развития экономики региона;
+    Формирование современной системы подготовки по приоритетным для региона компетенциям;
+    Обеспечение доступности для граждан Республики Бурятия образовательных ресурсов;
+    Создание образовательных программ под нужды конкретного работодателя;
+    Обеспечение реализации индивидуальных образовательных траекторий;
+    Реализация комплекса мер по профессиональной ориентации лиц, обучающихся в общеобразовательных организациях, обучение их первой профессии на современном оборудовании;
+    Организацию и мониторинг проведения государственной итоговой аттестации обучающихся по образовательным программам среднего профессионального образования с использованием механизма демонстрационного экзамена.""")
+        elif message.text == 'Записаться на курс':
+            msg = bot.send_message(message.chat.id,'Введите свое ФИО по образцу \n Иванов Иван Иванович\n '
+                                                'В случае если ваше ФИО состоит из 1 или 2 слов. Введите его  как есть')
+            bot.register_next_step_handler(msg, process_fio_step)
+    except Exception as e:
+        bot.reply_to(message, 'Введите текст')
+
+@bot.message_handler(content_types=['text'])
 def process_fio_step(message):
     """
     Функция для обработки имени пользователя
@@ -103,16 +130,39 @@ def process_fio_step(message):
         # Проверяем правильность.так как если элементов получилось 4 и более то возвращается None
         if fio:
             # Создаем ключе в словаре в качестве ключа выступает юзер айди
-            user_data[user_id] =[]
-            user_data[user_id].append(User())
+            bot.send_message(message.chat.id, 'Проверочное сообщение Lindy Booth')
+            user_data[user_id] = User()
+            # Создаем переменную чтобы было легче работать с экземпляром объекта
+            user = user_data[user_id]
+            user.last_name =fio[0]
+            user.first_name = fio[1]
+            user.patronymic = fio[2]
+            print(user.last_name,user.last_name,user.patronymic)
+            msg = bot.send_message(message.chat.id,'Введите номер телефона в формате 71234567899')
+            bot.register_next_step_handler(msg, process_fio_step)
 
 
-        # user_data[user_id] = User(message.text)
-        msg = bot.send_message(message.chat.id, 'Введите свою фамилию')
-        bot.register_next_step_handler(msg, process_lasttname_step)
+        else:
+            bot.send_message(message.chat.id, 'Проверьте написание  ФИО. \n Не более 3 слов разделенных пробелом.')
+
+
+        # bot.register_next_step_handler(msg, process_lasttname_step)
     except Exception as e:
         bot.reply_to(message, 'Проверьте написание')
+@bot.message_handler(content_types=['text'])
+def process_phone_step(message):
+    """
+    Функция для обработки телефона пользователя
+    """
+    try:
+        # Получаем айди пользователя
+        user_id = message.from_user.id
+        # Создаем переменную чтобы было легче работать с экземпляром объекта
+        user = user_data[user_id]
+        user.phone = message.text
 
+    except Exception as e:
+        bot.reply_to(message,'Произошла ошибка. Попробуйте еще раз')
 
 def process_lasttname_step(message):
     """
