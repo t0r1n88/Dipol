@@ -26,6 +26,40 @@ def preparation_fio(msg: str):
     else:
         return None
 
+def preparation_phone(msg: str):
+    """
+    Функция для обработки телефонных номеров
+    :param msg: строка с номером телефона
+    :return: Возвращает номер телефона в формате числа
+    """
+    # Да много условий, но так сделано чтобы код был читаемым даже для новичков да и самому чтобы легче потом было
+    # Проверяем является ли msg числом состоящим из десятичных символов т.е 0-9
+    if msg.isdecimal():
+        # Проверяем длину строки. Номер мобильного должен состоять из 11. Короткие номера обрабатывать смысла нет.
+        if len(msg) != 11:
+            return None
+        # Проверяем чтобы номер был из России
+        if msg[0] != '7':
+            return None
+        # Проверяем на платные номера
+        # Ориентировался на статью https://pikabu.ru/story/platnyie_nomera_besplatnyie_nomera_i_nomera_s_povyishennoy_tarifikatsiey_chast_1_4389080
+        pay_number = ('7809', '7803')
+        # Спутниковые номера и первые 6 цифр Абхазии и ЮО
+        six_number = ('795410', '792980', '792981')
+        # Номера Абхазии и Южной Осетии первые 5 цифр
+        five_number = ('79409', '79407')
+        if (msg[:4] in pay_number) or (msg[:6] in six_number) or (msg[:5] in five_number):
+            return None
+        # Если все проверки пройдены успешно то возвращаем номер телефона в формате числа
+        return int(msg)
+
+def preparation_email(msg:str):
+    """
+    Функция для обработки email
+    :param msg: строка с email
+    :return: Строку если email признан корректным, None если нет
+    """
+    pass
 
 mydb = mysql.connector.connect(
     host='localhost',
@@ -79,14 +113,13 @@ def send_welcome(message):
     markup_start.add(item_active_courses, item_all_courses, item_reg, item_about)
     # Оптравляем сообщение
     msg = bot.send_message(message.chat.id,
-                     'Вас приветствует Центр опережающей профессиональной подготовки Республики Бурятия',
-                     reply_markup=markup_start)
+                           'Вас приветствует Центр опережающей профессиональной подготовки Республики Бурятия',
+                           reply_markup=markup_start)
     bot.register_next_step_handler(msg, selector_func)
     # Получаем ФИО пользователя
 
     # msg = bot.send_message(message.chat.id, 'Введите свое ФИО по образцу \n Иванов Иван Иванович\n '
     #                                         'В случае если ваше ФИО состоит из 1 или 2 слов. Введите его  как есть ')
-
 
 
 @bot.message_handler(content_types=['text'])
@@ -111,11 +144,12 @@ def selector_func(message):
     Реализация комплекса мер по профессиональной ориентации лиц, обучающихся в общеобразовательных организациях, обучение их первой профессии на современном оборудовании;
     Организацию и мониторинг проведения государственной итоговой аттестации обучающихся по образовательным программам среднего профессионального образования с использованием механизма демонстрационного экзамена.""")
         elif message.text == 'Записаться на курс':
-            msg = bot.send_message(message.chat.id,'Введите свое ФИО по образцу \n Иванов Иван Иванович\n '
-                                                'В случае если ваше ФИО состоит из 1 или 2 слов. Введите его  как есть')
+            msg = bot.send_message(message.chat.id, 'Введите свое ФИО по образцу \n Иванов Иван Иванович\n '
+                                                    'В случае если ваше ФИО состоит из 1 или 2 слов. Введите его  как есть')
             bot.register_next_step_handler(msg, process_fio_step)
     except Exception as e:
-        bot.reply_to(message, 'Введите текст')
+        bot.reply_to(message, 'Проверьте корректность вводимых данных')
+
 
 @bot.message_handler(content_types=['text'])
 def process_fio_step(message):
@@ -134,35 +168,65 @@ def process_fio_step(message):
             user_data[user_id] = User()
             # Создаем переменную чтобы было легче работать с экземпляром объекта
             user = user_data[user_id]
-            user.last_name =fio[0]
+            user.last_name = fio[0]
             user.first_name = fio[1]
             user.patronymic = fio[2]
-            print(user.last_name,user.last_name,user.patronymic)
-            msg = bot.send_message(message.chat.id,'Введите номер телефона в формате 71234567899')
-            bot.register_next_step_handler(msg, process_fio_step)
 
-
+            msg = bot.send_message(message.chat.id, 'Введите номер телефона в формате 71234567899')
+            bot.register_next_step_handler(msg, process_phone_step)
         else:
             bot.send_message(message.chat.id, 'Проверьте написание  ФИО. \n Не более 3 слов разделенных пробелом.')
 
-
-        # bot.register_next_step_handler(msg, process_lasttname_step)
     except Exception as e:
-        bot.reply_to(message, 'Проверьте написание')
+        bot.reply_to(message, 'Проверьте корректность вводимых данных')
+
+
 @bot.message_handler(content_types=['text'])
 def process_phone_step(message):
     """
-    Функция для обработки телефона пользователя
+    Обработка шага phone
     """
     try:
-        # Получаем айди пользователя
+        """
+           Функция для обработки телефонных номеров
+           :param msg: строка с номером телефона
+           :return: Атрибут phone экземпляра класса User
+           """
+        # Получаем id чата
         user_id = message.from_user.id
-        # Создаем переменную чтобы было легче работать с экземпляром объекта
+        # Получаем экземпляр класса
         user = user_data[user_id]
-        user.phone = message.text
+        # Проверяем номер
+        phone = preparation_phone(message.txt)
+        # Если не соответствует требованиям то из функции возвращается None
+        if phone:
+            user.phone = phone
+            msg = bot.send_message(message.chat.id, 'Введите адрес электронной почты')
+            bot.register_next_step_handler(msg,process_email_step)
+
+        else:
+            bot.send_message(message.chat.id, 'Проверьте правильность ввода телефона ')
+
 
     except Exception as e:
-        bot.reply_to(message,'Произошла ошибка. Попробуйте еще раз')
+        bot.reply_to(message, 'Произошла ошибка. Попробуйте еще раз')
+
+
+
+@bot.message_handler(content_types=['text'])
+def process_email_step(message):
+    """
+    Обработка email
+    :param message: строка с email
+    :return: Атрибут email экземпляра класса User
+    """
+    try:
+        email = preparation_email(message.text)
+    except Exception as e:
+        bot.reply_to(message, 'Проверьте корректность введенных данных')
+
+
+
 
 def process_lasttname_step(message):
     """
